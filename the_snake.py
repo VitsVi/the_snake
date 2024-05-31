@@ -8,11 +8,29 @@ GRID_SIZE = 20
 GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
 
+# Пустые координаты на поле.
+EMPTY_BLOCKS = [(grid_part_width, grid_part_height)
+                for grid_part_width in range(0,
+                SCREEN_WIDTH, GRID_SIZE)
+                for grid_part_height in range(0,
+                SCREEN_HEIGHT, GRID_SIZE)]
+
 # Направления движения:
 UP = (0, -1)
 DOWN = (0, 1)
 LEFT = (-1, 0)
 RIGHT = (1, 0)
+
+# Регулировка передвижения змейки.
+TURNS = {
+    (pg.K_w, LEFT): UP,
+    (pg.K_w, RIGHT): UP,
+    (pg.K_s, LEFT): DOWN,
+    (pg.K_s, RIGHT): DOWN,
+    (pg.K_a, UP): LEFT,
+    (pg.K_a, DOWN): LEFT,
+    (pg.K_d, UP): RIGHT,
+    (pg.K_d, DOWN): RIGHT}
 
 # Цвет фона - черный:
 BOARD_BACKGROUND_COLOR = (0, 0, 0)
@@ -50,11 +68,23 @@ class GameObject:
         self.position = CENTRAL_POSITION
         self.body_color = body_color
 
-    def draw(self, position):
-        """Метод для отрисовки игровых объектов на поле."""
+    def draw(self):
+        """Абстрактный метод для визуализации объектов на поле.
+        Переопределяется в дочерних классах.
+        """
+        raise NotImplementedError
+
+    def draw_object(self, position):
+        """Метод отрисовки игровых объектов на поле."""
         rect = pg.Rect(position, (GRID_SIZE, GRID_SIZE))
         pg.draw.rect(screen, self.body_color, rect)
         pg.draw.rect(screen, BORDER_COLOR, rect, 1)
+
+    def clear_object(self, position):
+        """Метод закрашивания объектов на поле."""
+        if position:
+            last_rect = pg.Rect(self.last, (GRID_SIZE, GRID_SIZE))
+            pg.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
 
 
 class Snake(GameObject):
@@ -88,10 +118,8 @@ class Snake(GameObject):
 
     def draw(self):
         """Отрисовка змейки на игровом поле."""
-        super().draw(self.positions[0])
-        if self.last:
-            last_rect = pg.Rect(self.last, (GRID_SIZE, GRID_SIZE))
-            pg.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
+        super().draw_object(self.positions[0])
+        super().clear_object(self.last)
 
     def get_head_position(self):
         """Метод возвращает позицию 'головы' змейки на поле."""
@@ -122,20 +150,11 @@ class Apple(GameObject):
         """Отрисовка объекта на игровом поле,
         вызов метода родительского класса.
         """
-        super().draw(self.position)
+        super().draw_object(self.position)
 
 
 def handle_keys(game_object):
     """Функция для управления змейкой на поле."""
-    TURNS = {
-        (pg.K_w, LEFT): UP,
-        (pg.K_w, RIGHT): UP,
-        (pg.K_s, LEFT): DOWN,
-        (pg.K_s, RIGHT): DOWN,
-        (pg.K_a, UP): LEFT,
-        (pg.K_a, DOWN): LEFT,
-        (pg.K_d, UP): RIGHT,
-        (pg.K_d, DOWN): RIGHT}
     for event in pg.event.get():
         if event.type == pg.QUIT:
             pg.quit()
@@ -158,13 +177,9 @@ def save_score(length):
             '\n--------------------\n')
 
 
-def apple_get_empty_blocks(snake_positions):
+def get_empty_blocks(snake_positions):
     """Получение свободных блоков на карте для генерации яблока."""
-    empty_blocks = []
-    for grid_part_width in range(0, SCREEN_WIDTH, GRID_SIZE):
-        for grid_part_height in range(0, SCREEN_HEIGHT, GRID_SIZE):
-            empty_blocks.append((grid_part_width, grid_part_height))
-    empty_blocks = list(set(empty_blocks) - set(snake_positions))
+    empty_blocks = list(set(EMPTY_BLOCKS) - set(snake_positions))
     return empty_blocks
 
 
@@ -178,7 +193,7 @@ def main():
         if snake.get_head_position() == apple.position:
             snake.length += 1
             # Передача в метод результата функции с пустыми клетками на карте.
-            apple.randomize_position(apple_get_empty_blocks(snake.positions))
+            apple.randomize_position(get_empty_blocks(snake.positions))
         handle_keys(snake)
         snake.move()
         # Проверка условия проигрыша и запись результата игры
